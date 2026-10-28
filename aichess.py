@@ -656,6 +656,7 @@ class Aichess():
             return 1000 + profundidad
         return 0
 
+
     def minimaxGame(self, depthWhite, depthBlack):
 
         currentState = self.getCurrentState()
@@ -663,23 +664,27 @@ class Aichess():
 
         # Funcio recursiva que calcula el valor d'un estat amb Minimax
         def minimax(estado, turnoBlancas, profundidad):
+
             # Comprovem si algun rei ha estat capturat
+            # Les puntuacions positives afavoreixen les blanques i les negatives les negres
             if self.getPieceState(estado, 12) is None:
                 return 1000
             if self.getPieceState(estado, 6) is None:
                 return -1000
 
+
             # Comprovem si algun jugador ha fet escac i mat
+            # Afegim la profunditat restant per valorar els mats mes rapids
             if self.isBlackInCheckMate(estado):
                 return 1000 + profundidad
             if self.isWhiteInCheckMate(estado):
                 return -1000 - profundidad
 
-            # Si hem arribat a la profunditat maxima, avaluem l'estat
+            # Si hem arribat a la profunditat maxima, avaluem la pusicio amb l'heruistica
             if profundidad == 0:
                 return self.heuristica(estado, True)
 
-            # Generem nomes els successors legals del jugador actual
+            # Generem tots els moviments legals del jugador actual
             hijos = self.sucesoresLegales(estado, turnoBlancas)
 
             # Si no hi ha moviments legals, es mat o ofegat
@@ -689,6 +694,7 @@ class Aichess():
             valores = []
 
             # Avaluem tots els successors possibles
+            # A cada nivell canviem de jugador i reduim la profunditat
             for hijo in hijos:
                 # Calculem el valor del successor
                 valor = minimax(
@@ -696,7 +702,6 @@ class Aichess():
                     not turnoBlancas,
                     profundidad - 1
                 )
-
                 valores.append(valor)
 
             # Les blanques maximitzen i les negres minimitzen
@@ -709,6 +714,7 @@ class Aichess():
         
         # Limitem la partida per evitar que sigui infinita
         maxTurns = 100
+
         
         for turno in range(maxTurns):
             # Obtenim l'estat actual de la partida
@@ -724,12 +730,13 @@ class Aichess():
             if self.getPieceState(currentState, 2) is None and self.getPieceState(currentState, 8) is None:
                 return 'empate'
 
+            # Seleccionem la profunditat de cerca segons el jugador actual
             profundidad = depthWhite if turnoBlancas else depthBlack
 
             # Generem nomes els successors legals del jugador actual
             hijos = self.sucesoresLegales(currentState, turnoBlancas)
 
-            # Sense moviments legals: escac i mat o ofegat
+            # Si no hi ha successors, distingim entre escac i mat i ofegat
             if len(hijos) == 0:
                 valor = self.valorSinMovimientos(currentState, turnoBlancas, 0)
                 if valor > 0:
@@ -738,7 +745,7 @@ class Aichess():
                     return 'negras'
                 return 'empate'
 
-            # Inicialitzem el millor moviment
+            # Inicialitzem les variables que guardaran el millor moviment
             mejorValor = None
             mejorEstado = None
 
@@ -761,9 +768,10 @@ class Aichess():
             if mejorEstado is None:
                 return 'empate'
 
-            # Identifiquem la peça que s'ha mogut
+            # Identifiquem les coordenades d'origen i desti del moviment escollit
             origen, destino = self.getMovement(currentState, mejorEstado)
 
+            # Si no podem identificar el moviment, aturem la partida
             if origen is None or destino is None:
                 print("No s'ha pogut identificar el moviment")
                 return 'empate'
@@ -788,6 +796,7 @@ class Aichess():
 
             # Canviem el torn de jugador
             turnoBlancas = not turnoBlancas
+
         # Si s'arriba al limit de torns, aturem la partida
         return 'empate'
 
@@ -796,83 +805,109 @@ class Aichess():
 
     def alphaBetaPoda(self, depthWhite, depthBlack, podaBlancas=False):
 
+        # Obtenim l'estat inicial del tauler
         currentState = self.getCurrentState()
 
-        # Exercici 3: blanques Minimax, negres alfa-beta (podaBlancas = False).
-        # Exercici 4: podaBlancas = True perquè tots dos podin.
+        # Les negres utilitzen poda alfa-beta per defecte
+        # Si podaBlancas es True, les blanques tambe utilitzen poda
         podaNegras = True
 
         # Avalua una posicio amb Minimax. Si 'poda' és cert (el jugador que
-        # fa la cerca usa alfa-beta) es tallen branques a nodes MAX i MIN.
+        # fa la cerca usa alfa-beta) es tallen branques a nodes MAX i MIN
         def minimax(estado, turnoBlancas, profundidad, alpha, beta, poda):
-            # Comprovem si algun rei ha estat capturat.
+            # Comprovem si algun rei ha estat capturat
             if self.getPieceState(estado, 12) is None:
                 return 1000
             if self.getPieceState(estado, 6) is None:
                 return -1000
 
-            # Comprovem escac i mat.
+            # Comprovem escac i mat
             if self.isBlackInCheckMate(estado):
                 return 1000 + profundidad
             if self.isWhiteInCheckMate(estado):
                 return -1000 - profundidad
 
-            # Arribem a la profunditat màxima.
+            # Si hem arribat al limit de profunditat, avaluem l'estat amb l'heuristica
             if profundidad <= 0:
                 return self.heuristica(estado, True)
 
+            # Generem els successors legals del jugador actual
             hijos = self.sucesoresLegales(estado, turnoBlancas)
+
+            # Si no hi ha successors, comprovem si es mat o ofegat
             if not hijos:
                 return self.valorSinMovimientos(estado, turnoBlancas, profundidad)
 
+            # Inicialitzem el millor valor segons el tipus de node
+            # Les blanques comencen a -infinit i les negres a +infinit
             mejorValor = float('-inf') if turnoBlancas else float('inf')
+
+            # Explorem els successors recursivament
             for hijo in hijos:
                 valor = minimax(hijo, not turnoBlancas, profundidad - 1,
                                 alpha, beta, poda)
 
+                # En nodes MAX actualitzem el millor valor i alpha
                 if turnoBlancas:
                     mejorValor = max(mejorValor, valor)
                     alpha = max(alpha, mejorValor)
+
+                # En nodes MIN actualitzem el millor valor i beta
                 else:
                     mejorValor = min(mejorValor, valor)
                     beta = min(beta, mejorValor)
 
-                # Amb Minimax pur no es poda mai
+                # Si la poda esta activada i beta <= alpha,
+                # deixem d'explorar successors d'aquesta branca
                 if poda and beta <= alpha:
                     break
 
+            # Retornem el millor valor trobat en aquesta posicio
             return mejorValor
 
+        # La partida comenca amb les blanques
         turnoBlancas = True
         maxTurns = 100
-        # Comptem repeticions de la mateixa posicio amb el mateix torn.
-        # Una sola repetició no és suficient per declarar empat.
+
+        # Diccionari per comptar les repeticions de cada posicio i torn
         repeticiones = {}
 
         for turno in range(maxTurns):
+            # Obtenim l'estat actual de la partida
             currentState = self.getCurrentState()
 
-            # Comprovem primer les condicions de final de partida.
+            # Comprovem si algun rei ha estat capturat
             if self.getPieceState(currentState, 12) is None:
                 return 'blancas'
             if self.getPieceState(currentState, 6) is None:
                 return 'negras'
+
+            # Comprovem les condicions de final de partida per escac i mat
             if self.isBlackInCheckMate(currentState):
                 return 'blancas'
             if self.isWhiteInCheckMate(currentState):
                 return 'negras'
+
+            # Si no queda cap torre, considerem la partida empatada
             if (self.getPieceState(currentState, 2) is None and
                     self.getPieceState(currentState, 8) is None):
                 return 'empate'
 
-            # Detectem una tercera aparicio de la mateixa situacio.
+            # Creem una representacio ordenada de la posicio actual
+            # Tambe guardem el jugador que te el torn per distingir situacions
             posicion = tuple(sorted(tuple(pieza) for pieza in currentState))
             situacion = (posicion, turnoBlancas)
+
+            # Incrementem el comptador de repeticions d'aquesta situacio
             repeticiones[situacion] = repeticiones.get(situacion, 0) + 1
+
+            # Si la mateixa situacio apareix tres vegades, declarem empat
             if repeticiones[situacion] >= 3:
                 print("Empat per triple repetició de posició")
                 return 'empate'
 
+            # Seleccionem la profunditat i si s'aplica la poda
+            # segons el jugador que ha de moure
             if turnoBlancas:
                 profundidad = depthWhite
                 poda = podaBlancas
@@ -880,9 +915,10 @@ class Aichess():
                 profundidad = depthBlack
                 poda = podaNegras
 
+            # Generem els successors legals del jugador actual
             hijos = self.sucesoresLegales(currentState, turnoBlancas)
 
-            # Sense moviments legals: escac i mat o ofegat
+            # Si no hi ha moviments legals, comprovem si es mat o ofegat
             if not hijos:
                 valor = self.valorSinMovimientos(currentState, turnoBlancas, 0)
                 if valor > 0:
@@ -891,34 +927,44 @@ class Aichess():
                     return 'negras'
                 return 'empate'
 
+            # Inicialitzem el millor valor i l'estat seleccionat
             mejorValor = float('-inf') if turnoBlancas else float('inf')
             mejorEstado = None
+
+            # Inicialitzem els limits alfa-beta per a la cerca actual
             alpha = float('-inf')
             beta = float('inf')
 
+            # Avaluem tots els successors per seleccionar el millor moviment
             for hijo in hijos:
                 valor = minimax(hijo, not turnoBlancas, profundidad - 1,
                                 alpha, beta, poda)
 
+                # Les blanques escullen el valor maxim i actualitzen alpha
                 if turnoBlancas:
                     if valor > mejorValor:
                         mejorValor = valor
                         mejorEstado = hijo
                     alpha = max(alpha, mejorValor)
+                # Les negres escullen el valor minim i actualitzen beta
                 else:
                     if valor < mejorValor:
                         mejorValor = valor
                         mejorEstado = hijo
                     beta = min(beta, mejorValor)
 
+            # Si no s'ha trobat cap moviment, retornem empat
             if mejorEstado is None:
                 return 'empate'
-
+            # Recuperem les coordenades del moviment seleccionat
             origen, destino = self.getMovement(currentState, mejorEstado)
+            
+            # Comprovem que el moviment s'hagi pogut identificar
             if origen is None or destino is None:
                 print("No s'ha pogut identificar el moviment")
                 return 'empate'
 
+            # Mostrem el jugador, el moviment i el valor calculat
             if turnoBlancas:
                 print("\nTorn de les blanques (Minimax)")
             else:
@@ -926,63 +972,88 @@ class Aichess():
             print("Moviment:", origen[0:2], "->", destino[0:2])
             print("Valor:", mejorValor)
 
+            # Executem el moviment al tauler real i mostrem el resultat
             self.chess.move(origen[0:2], destino[0:2])
             self.chess.board.print_board()
+
+            # Canviem el torn al jugador contrari
             turnoBlancas = not turnoBlancas
 
-        # Límit de seguretat per evitar una partida interminable.
+        # Si s'arriba al limit de torns, declarem empat per seguretat
         print("Empat: s'ha arribat al límit de torns")
         return 'empate'
 
         
     def expectimax(self, depthWhite, depthBlack):
+        # Obtenim l'estat inicial del tauler
         currentState = self.getCurrentState()
         # Your code here
 
+         # Funcio recursiva que combina MAX, MIN i nodes d'esperanca
+        # segons el tipus de cerca indicat per esExpectimax.
         def buscar(estado, turnoBlancas, profundidad, alpha, beta, esExpectimax):
+            # Comprovem si algun dels reis ha estat capturat
             if self.getPieceState(estado, 12) is None:
                 return 1000
             if self.getPieceState(estado, 6) is None:
                 return -1000
+            
+            # Comprovem si la posicio es escac i mat
             if self.isBlackInCheckMate(estado):
                 return 1000 + profundidad
             if self.isWhiteInCheckMate(estado):
                 return -1000 - profundidad
+
+            # Si arribem al limit de profunditat, avaluem la posicio amb l'heuristica
             if profundidad == 0:
                 return self.heuristica(estado, True)
 
+            # Generem els successors legals del jugador actual
             hijos = self.sucesoresLegales(estado, turnoBlancas)
 
+            # Si no hi ha successors, distingim entre escac i mat i ofegat
             if len(hijos) == 0:
                 return self.valorSinMovimientos(estado, turnoBlancas, profundidad)
 
             valores = []
 
+            # Avaluem recursivament tots els successors possibles
             for hijo in hijos:
                 valor = buscar(hijo, not turnoBlancas, profundidad - 1,
                             alpha, beta, esExpectimax)
                 valores.append(valor)
 
-                # Poda alfa-beta nomes en la cerca de les negres (alfa-beta);
-                # amb nodes d'esperança (expectimax) no es pot podar
+                # La poda alfa-beta nomes s'aplica quan no estem
+                # utilitzant Expectimax en aquesta cerca
                 if not esExpectimax:
+                    # Actualitzem alpha en nodes MAX i beta en nodes MIN
                     if turnoBlancas:
                         alpha = max(alpha, valor)
                     else:
                         beta = min(beta, valor)
+                    # Si beta <= alpha, podem descartar la resta de successors
                     if beta <= alpha:
                         break
 
+            # Les blanques seleccionen el valor maxim
             if turnoBlancas:
                 return max(valores)
+            
+            # En mode Expectimax, combinem els valors mitjancant
+            # la funcio de valor esperat ponderat
             if esExpectimax:
                 return self.calculateValue(valores)
+            
+            # En mode minimax amb poda, les negres seleccionen el valor minim
             return min(valores)
 
+        # La partida comenca amb el torn de les blanques
         turnoBlancas = True
         maxTurns = 100
 
+    
         for turno in range(maxTurns):
+            # Obtenim l'estat actual del tauler
             currentState = self.getCurrentState()
 
             # Comprovem si algun rei ha estat capturat
@@ -1001,11 +1072,13 @@ class Aichess():
             if self.getPieceState(currentState, 2) is None and self.getPieceState(currentState, 8) is None:
                 return 'empate'
 
+            #  Seleccionem la profunditat segons el jugador actual
             profundidad = depthWhite if turnoBlancas else depthBlack
 
+            # Generem els successors legals de la posicio actual
             hijos = self.sucesoresLegales(currentState, turnoBlancas)
 
-            # Sense moviments legals: escac i mat o ofegat
+            # Si no hi ha moviments legals, comprovem si es mat o ofegat
             if len(hijos) == 0:
                 valor = self.valorSinMovimientos(currentState, turnoBlancas, 0)
                 if valor > 0:
@@ -1014,30 +1087,40 @@ class Aichess():
                     return 'negras'
                 return 'empate'
 
+            # Inicialitzem el millor valor i l'estat seleccionat
             mejorValor = None
             mejorEstado = None
 
+            # Avaluem cada successor amb la cerca corresponent
+            # Les blanques activen el mode Expectimax i les negres el mode alfa-beta
             for hijo in hijos:
                 # Blanques -> expectimax (True), negres -> alfa-beta (False)
                 valor = buscar(hijo, not turnoBlancas, profundidad - 1,
                             float('-inf'), float('inf'), turnoBlancas)
 
+                # Les blanques escullen el valor maxim
                 if turnoBlancas and (mejorValor is None or valor > mejorValor):
                     mejorValor = valor
                     mejorEstado = hijo
+
+                # Les negres escullen el valor minim
                 elif not turnoBlancas and (mejorValor is None or valor < mejorValor):
                     mejorValor = valor
                     mejorEstado = hijo
 
+            # Si no s'ha seleccionat cap successor, retornem empat
             if mejorEstado is None:
                 return 'empate'
 
+            # Identifiquem les coordenades d'origen i desti del moviment
             origen, destino = self.getMovement(currentState, mejorEstado)
 
+            # Si no podem identificar el moviment, aturem la partida
             if origen is None or destino is None:
                 print("No s'ha pogut identificar el moviment")
                 return 'empate'
 
+            # Mostrem quin jugador mou, el moviment escollit i la seva valoracio
             if turnoBlancas:
                 print("\nTorn de les blanques (Expectimax)")
             else:
@@ -1046,9 +1129,11 @@ class Aichess():
             print("Moviment:", origen[0:2], "->", destino[0:2])
             print("Valor:", mejorValor)
 
+            # Executem el moviment seleccionat al tauler real.
             self.chess.move(origen[0:2], destino[0:2])
+    
             self.chess.board.print_board()
-
+            # Canviem el torn al jugador contrari
             turnoBlancas = not turnoBlancas
 
         return 'empate'
@@ -1076,7 +1161,7 @@ if __name__ == "__main__":
     aichess.chess.boardSim.print_board()
     
     # Run exercise 1
-    resultat = aichess.alphaBetaPoda(3,1)
+    resultat = aichess.minimaxGame(4,3)
     # Add code to save results and continue with other exercises
     # Mostrem el resultat final
     print("Resultat de la partida:", resultat)
