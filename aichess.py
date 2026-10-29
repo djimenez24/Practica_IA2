@@ -7,6 +7,9 @@ Created on Thu Sep  8 11:22:03 2022
 """
 import copy
 import math
+import random
+import contextlib
+import io
 
 import chess
 import board
@@ -1137,7 +1140,80 @@ class Aichess():
             turnoBlancas = not turnoBlancas
 
         return 'empate'
-        
+
+
+def tableroInicial():
+    # Posicio inicial de la practica
+    TA = np.zeros((8, 8))
+    TA[7][0] = 2
+    TA[7][5] = 6
+    TA[0][7] = 8
+    TA[0][5] = 12
+    return TA
+
+
+def jugarPartida(modo, depthWhite, depthBlack):
+    # Juga una partida nova des de la posicio inicial i retorna el guanyador
+    aichess = Aichess(tableroInicial(), True)
+
+    # Els algorismes son deterministes: sense aleatorietat totes les partides
+    # serien iguals. Barregem l'ordre dels successors perque els empats entre
+    # moviments amb el mateix valor es resolguin a l'atzar
+    sucesoresOriginal = aichess.sucesoresLegales
+    def sucesoresBarrejats(estado, turnoBlancas):
+        hijos = sucesoresOriginal(estado, turnoBlancas)
+        random.shuffle(hijos)
+        return hijos
+    aichess.sucesoresLegales = sucesoresBarrejats
+
+    # Amaguem els prints de cada moviment
+    with contextlib.redirect_stdout(io.StringIO()):
+        if modo == 'minimax':
+            return aichess.minimaxGame(depthWhite, depthBlack)
+        if modo == 'alphabeta_negras':
+            return aichess.alphaBetaPoda(depthWhite, depthBlack, podaBlancas=False)
+        if modo == 'alphabeta':
+            return aichess.alphaBetaPoda(depthWhite, depthBlack, podaBlancas=True)
+        if modo == 'expectimax':
+            return aichess.expectimax(depthWhite, depthBlack)
+    raise ValueError("Mode desconegut: " + modo)
+
+
+def graficaResultados(modo, combinaciones, numPartidas=10, fichero=None):
+    # Per cada combinacio (depthWhite, depthBlack) juga numPartidas partides
+    # i dibuixa el percentatge de victories blanques, negres i empats
+    etiquetas = []
+    pctBlancas, pctNegras, pctEmpates = [], [], []
+
+    for depthWhite, depthBlack in combinaciones:
+        resultados = {'blancas': 0, 'negras': 0, 'empate': 0}
+        for i in range(numPartidas):
+            resultado = jugarPartida(modo, depthWhite, depthBlack)
+            resultados[resultado] += 1
+            print(f"{modo} W{depthWhite}-B{depthBlack} partida {i + 1}/{numPartidas}: {resultado}")
+
+        etiquetas.append(f"W{depthWhite}-B{depthBlack}")
+        pctBlancas.append(100 * resultados['blancas'] / numPartidas)
+        pctNegras.append(100 * resultados['negras'] / numPartidas)
+        pctEmpates.append(100 * resultados['empate'] / numPartidas)
+
+    # Barres apilades: blanques + negres + empats = 100%
+    x = np.arange(len(etiquetas))
+    plt.figure(figsize=(max(6, len(etiquetas) * 0.6), 4))
+    plt.bar(x, pctBlancas, label='Blanques', color='#e8e2d0', edgecolor='black')
+    plt.bar(x, pctNegras, bottom=pctBlancas, label='Negres', color='#333333')
+    plt.bar(x, pctEmpates, bottom=np.add(pctBlancas, pctNegras), label='Empat', color='#999999')
+    plt.xticks(x, etiquetas, rotation=45)
+    plt.ylabel('% de partides')
+    plt.title(f"{modo} ({numPartidas} partides per combinacio)")
+    plt.legend()
+    plt.tight_layout()
+    if fichero:
+        plt.savefig(fichero)
+    plt.show()
+
+    return etiquetas, pctBlancas, pctNegras, pctEmpates
+
 
 if __name__ == "__main__":
     # if len(sys.argv) < 2:
@@ -1168,3 +1244,11 @@ if __name__ == "__main__":
 
     # Mostrem el tauler final
     aichess.chess.board.print_board()
+
+    # Grafiques (descomentar la que es vulgui generar)
+    # Exercici 2: minimax amb profunditats 3 i 4
+    # graficaResultados('minimax', [(3, 3), (3, 4), (4, 3), (4, 4)], 10, 'ex2.png')
+    # Exercici 4: alfa-beta per a tots dos amb profunditats 1-5
+    # graficaResultados('alphabeta', [(w, b) for w in range(1, 6) for b in range(1, 6)], 3, 'ex4.png')
+    # Exercici 5: expectimax (blanques) contra alfa-beta (negres)
+    # graficaResultados('expectimax', [(3, 3), (4, 4)], 3, 'ex5.png')
